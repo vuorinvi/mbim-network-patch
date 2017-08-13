@@ -1,0 +1,57 @@
+--- /base/06072017/usr/bin/mbim-network	2017-02-11 05:29:08.000000000 +0200
++++ /usr/bin/mbim-network	2017-07-27 15:46:44.458670796 +0300
+@@ -234,6 +234,7 @@
+ {
+     echo "Clearing state at ${STATE_FILE}..."
+     rm -f $STATE_FILE
++    ip addr flush dev wwp0s20f0u3
+ }
+ 
+ #
+@@ -247,6 +248,20 @@
+ #           Context type: 'internet'
+ #          Network error: 'unknown'
+ #
++
++function setip() {
++	ip link set dev wwp0s20f0u3 up
++	while {
++		read -r ip
++		read -r gateway
++	}
++	do
++		ip addr add $ip dev wwp0s20f0u3
++		ip route add default via $gateway dev wwp0s20f0u3
++		break
++	done 
++}
++
+ connect ()
+ {
+     # Always try to connect using a fresh session
+@@ -304,6 +319,7 @@
+     CONNECT_CMD="mbimcli -d $DEVICE --connect=$CONNECT_ARGS --no-open=$TRID --no-close $PROXY_OPT"
+     echo "Starting network with '$CONNECT_CMD'..."
+ 
++    echo "$CONNECT_CMD"
+     CONNECT_OUT=`$CONNECT_CMD`
+     if [ $? -eq 0 ]; then
+         echo "Network started successfully"
+@@ -317,6 +333,9 @@
+     if [ -n "$TRID" ]; then
+         save_state "TRID" $TRID
+     fi
++
++    IPADDRS=$(awk -F"'" '/IP\ \[0\]/,/Gateway/ {print $2}' <<< $CONNECT_OUT)
++    setip <<< $IPADDRS
+ }
+ 
+ #
+@@ -343,6 +362,7 @@
+     DISCONNECT_OUT=`$DISCONNECT_CMD`
+     if [ $? -eq 0 ]; then
+         echo "Network stopped successfully"
++	echo $DISCONNECT_OUT
+     else
+         echo "Network stop failed"
+         echo $DISCONNECT_OUT
